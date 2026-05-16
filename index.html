@@ -1814,20 +1814,24 @@ async function startAudioAnalysis(){
       headers:{'authorization':asmKey,'content-type':'application/octet-stream'},
       body:_audioFile
     });
-    if(!uploadRes.ok) throw new Error('アップロードエラー: '+uploadRes.status+' APIキーを確認してください');
+    if(!uploadRes.ok){
+      const t=await uploadRes.text();
+      throw new Error('アップロードエラー('+uploadRes.status+'): '+t);
+    }
     const uploadData=await uploadRes.json();
     const audioUrl=uploadData.upload_url;
+    if(!audioUrl) throw new Error('音声URLの取得に失敗しました');
 
     // Step2: 文字起こしジョブを投稿
     document.getElementById('loadingStep').textContent='音声を解析中...';
     const submitRes=await fetch('https://api.assemblyai.com/v2/transcript',{
       method:'POST',
       headers:{'authorization':asmKey,'content-type':'application/json'},
-      body:JSON.stringify({audio_url:audioUrl,speech_model:'nano',language_code:'ja',speaker_labels:true,speakers_expected:2})
+      body:JSON.stringify({audio_url:audioUrl,language_code:'ja',speaker_labels:true,speakers_expected:2})
     });
     if(!submitRes.ok){
-      const errText=await submitRes.text();
-      throw new Error('分析開始エラー: '+submitRes.status+' '+errText);
+      const t=await submitRes.text();
+      throw new Error('分析開始エラー('+submitRes.status+'): '+t);
     }
     const submitData=await submitRes.json();
     const tid=submitData.id;
