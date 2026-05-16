@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>カウンセリング分析 × Claude</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+@media print{
+  .header,.app-shell,#pdf-edit-panel,.sidebar,#pdf-overlay>div:first-child,#pdf-overlay>div:last-child>div:first-child{display:none!important}
+  #pdf-overlay{position:static!important;display:block!important}
+  #pdf-overlay>div:last-child{display:block!important;background:white!important;padding:0!important}
+  #pdf-preview{box-shadow:none!important;width:100%!important;min-height:auto!important;padding:8mm 10mm!important}
+  @page{size:A4;margin:0}
+}
+:root{
+  --navy:#1A3A5C;--navyL:#2C5F8A;--navyXL:#3A6FA0;
+  --teal:#1E7B7B;--tealP:#E8F4F4;--tealM:#A8D8D8;
+  --green:#1A7A40;--greenP:#EAF7EF;--greenB:#7DC99A;
+  --amber:#C87A1A;--amberP:#FEF5EC;--amberB:#F0B870;--amberD:#7D4A0A;
+  --purple:#6B3FA0;--purpleP:#F0EAF8;
+  --red:#C0392B;--redP:#FDECEC;
+  --bg:#F2F5F9;--white:#fff;
+  --border:#DDE3EC;--text:#1A2332;--muted:#6B7A8D;
+  --sidebar:220px;
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* ══ Top header ══ */
+.header{background:var(--navy);padding:0 20px;display:flex;align-items:center;height:52px;flex-shrink:0;z-index:200;position:sticky;top:0}
+.header-brand{display:flex;align-items:center;gap:10px;flex:1}
+.header-logo{width:30px;height:30px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.header-logo svg{width:16px;height:16px;fill:white}
+.header-title{color:white;font-size:14px;font-weight:700}
+.header-sub{color:rgba(255,255,255,.38);font-size:10px;margin-top:1px}
+.header-new-btn{height:32px;padding:0 14px;background:var(--teal);color:white;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s;flex-shrink:0}
+.header-new-btn:hover{background:#165E5E}
+
+/* ══ App shell ══ */
+.app-shell{display:flex;flex:1;min-height:0;height:calc(100vh - 52px)}
+
+/* ══ Sidebar ══ */
+.sidebar{
+  width:var(--sidebar);flex-shrink:0;
+  background:var(--navy);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  border-right:1px solid rgba(255,255,255,.06);
+}
+.sidebar-section{padding:14px 12px 6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:1.2px;text-transform:uppercase}
+.sidebar-search{padding:0 10px 10px}
+.sidebar-search input{
+  width:100%;height:32px;padding:0 10px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;color:white;font-family:inherit;font-size:12px;outline:none;
+  transition:border-color .15s;
+}
+.sidebar-search input::placeholder{color:rgba(255,255,255,.3)}
+.sidebar-search input:focus{border-color:var(--tealM)}
+.sidebar-nav{overflow-y:auto;flex:1}
+.sidebar-nav::-webkit-scrollbar{width:3px}
+.sidebar-nav::-webkit-scrollbar-track{background:transparent}
+.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
+.nav-item{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 14px;cursor:pointer;transition:background .12s;
+  border-left:3px solid transparent;
+}
+.nav-item:hover{background:rgba(255,255,255,.06)}
+.nav-item.active{background:rgba(30,123,123,.25);border-left-color:var(--teal)}
+.nav-item-icon{font-size:14px;flex-shrink:0;width:20px;text-align:center}
+.nav-item-label{font-size:12px;color:rgba(255,255,255,.75);font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-item.active .nav-item-label{color:white}
+.nav-item-count{font-size:10px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.5);padding:1px 6px;border-radius:8px;flex-shrink:0}
+.nav-item.active .nav-item-count{background:var(--teal);color:white}
+.nav-divider{height:1px;background:rgba(255,255,255,.07);margin:6px 12px}
+.sidebar-bottom{padding:12px;border-top:1px solid rgba(255,255,255,.07)}
+.sidebar-bottom-btn{width:100%;height:32px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(255,255,255,.6);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s}
+.sidebar-bottom-btn:hover{background:rgba(255,255,255,.13)}
+
+/* ══ Main content ══ */
+.main{flex:1;overflow-y:auto;min-width:0}
+.main::-webkit-scrollbar{width:5px}
+.main::-webkit-scrollbar-track{background:transparent}
+.main::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ══ Page ══ */
+.page{display:none;min-height:100%}.page.show{display:block}
+.page-container{max-width:880px;margin:0 auto;padding:28px 28px 80px}
+
+/* ══ Page header ══ */
+.page-header{margin-bottom:24px}
+.page-header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.page-title{font-size:20px;font-weight:700;color:var(--navy)}
+.page-subtitle{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* ══ Stats bar ══ */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:11px;padding:14px 16px}
+.stat-label{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:4px}
+.stat-value{font-size:22px;font-weight:700;color:var(--navy)}
+.stat-value.teal{color:var(--teal)}.stat-value.amber{color:var(--amber)}.stat-value.green{color:var(--green)}
+
+/* ══ Clinic hero ══ */
+.clinic-hero{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navyL) 100%);
+  border-radius:14px;padding:22px 26px;margin-bottom:20px;
+  display:flex;align-items:center;gap:18px;
+}
+.clinic-hero-avatar{
+  width:52px;height:52px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;flex-shrink:0;background:rgba(255,255,255,.12);
+}
+.clinic-hero-name{font-size:19px;font-weight:700;color:white}
+.clinic-hero-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:3px}
+.clinic-hero-stats{display:flex;gap:20px;margin-left:auto}
+.hs{text-align:center}
+.hs-val{font-size:20px;font-weight:700;color:white}
+.hs-lbl{font-size:10px;color:rgba(255,255,255,.45);margin-top:1px}
+
+/* ══ Tabs (in-page) ══ */
+.in-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px}
+.in-tab{padding:9px 18px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap}
+.in-tab:hover{color:var(--navy)}
+.in-tab.active{color:var(--teal);border-bottom-color:var(--teal)}
+
+/* ══ Staff chips ══ */
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chip{height:30px;padding:0 12px;border:1px solid var(--border);border-radius:15px;background:var(--white);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text);transition:all .15s;display:flex;align-items:center;gap:4px}
+.chip:hover{border-color:var(--teal);color:var(--teal)}
+.chip.active{background:var(--teal);color:white;border-color:var(--teal)}
+
+/* ══ Filter bar ══ */
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.fselect{height:32px;padding:0 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;color:var(--text);background:var(--white);outline:none;cursor:pointer}
+.fselect:focus{border-color:var(--teal)}
+.finput{height:32px;padding:0 11px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;color:var(--text);background:var(--white);outline:none;flex:1;min-width:160px}
+.finput:focus{border-color:var(--teal)}
+
+/* ══ Record cards ══ */
+.record-list{display:flex;flex-direction:column;gap:8px}
+.record-card{
+  background:var(--white);border:1px solid var(--border);border-radius:11px;
+  padding:14px 16px;cursor:pointer;transition:all .13s;
+  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+}
+.record-card:hover{border-color:var(--teal);box-shadow:0 2px 8px rgba(30,123,123,.1)}
+.record-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px}
+.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px;background:var(--tealP);color:var(--teal)}
+.badge.amber{background:var(--amberP);color:var(--amber)}
+.badge.purple{background:var(--purpleP);color:var(--purple)}
+.badge.green{background:var(--greenP);color:var(--green)}
+.record-clinic-name{font-size:13px;font-weight:700;color:var(--navy)}
+.record-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.record-preview{font-size:11px;color:var(--muted);margin-top:5px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.rec-actions{display:flex;gap:5px}
+.icon-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .13s;color:var(--muted)}
+.icon-btn:hover{background:var(--bg)}
+.icon-btn.danger:hover{background:var(--redP);border-color:#F5BBBB;color:var(--red)}
+
+/* ══ Empty state ══ */
+.empty-state{text-align:center;padding:44px 20px;background:var(--white);border:1px solid var(--border);border-radius:12px}
+.empty-icon{font-size:32px;margin-bottom:10px}
+.empty-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:5px}
+.empty-sub{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* ══ Form ══ */
+.card{background:var(--white);border:1px solid var(--border);border-radius:13px;padding:22px 24px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.card-title .icon{width:24px;height:24px;border-radius:6px;background:var(--tealP);display:flex;align-items:center;justify-content:center;font-size:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:11px;font-weight:500;color:var(--muted)}
+.form-group input,.form-group select{height:36px;padding:0 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;color:var(--text);background:var(--white);outline:none;transition:border-color .15s}
+.form-group input:focus,.form-group select:focus{border-color:var(--teal)}
+textarea{width:100%;min-height:170px;padding:11px 13px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:13px;line-height:1.7;color:var(--text);background:var(--bg);resize:vertical;outline:none;transition:border-color .15s}
+textarea:focus{border-color:var(--teal);background:var(--white)}
+.char-count{font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+.btn-primary{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:40px;margin-top:8px;background:var(--teal);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+.btn-primary:hover{background:#165E5E}
+.btn-sm{height:32px;padding:0 13px;font-size:12px;border-radius:7px;background:var(--white);color:var(--navy);border:1px solid var(--border);cursor:pointer;font-family:inherit;font-weight:600;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.btn-sm:hover{background:var(--bg)}
+.btn-sm.teal{background:var(--teal);color:white;border-color:var(--teal)}.btn-sm.teal:hover{background:#165E5E}
+.btn-sm.ghost{color:var(--muted)}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap}
+
+/* ══ Steps ══ */
+.steps{display:flex;margin-bottom:20px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--white)}
+.step{flex:1;padding:10px 12px;display:flex;align-items:center;gap:7px;border-right:1px solid var(--border);transition:background .2s}
+.step:last-child{border-right:none}
+.step.active{background:var(--tealP)}.step.done{background:var(--greenP)}
+.step-num{width:20px;height:20px;border-radius:50%;background:var(--border);color:var(--muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step.active .step-num{background:var(--teal);color:white}.step.done .step-num{background:var(--green);color:white}
+.step-label{font-size:10px;font-weight:500;color:var(--muted);line-height:1.3}
+.step.active .step-label{color:var(--teal)}.step.done .step-label{color:var(--green)}
+
+/* ══ Loading ══ */
+.loading-box{display:none;text-align:center;padding:40px 20px}.loading-box.show{display:block}
+.spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--teal);animation:spin .8s linear infinite;margin:0 auto 11px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--muted)}.loading-step{font-size:11px;color:var(--teal);margin-top:4px}
+
+/* ══ FB sheet ══ */
+.result-box{display:none}.result-box.show{display:block}
+.fb-sheet{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.fb-header{background:var(--navy);padding:14px 18px;color:white}
+.fb-header-top{font-size:9px;color:rgba(255,255,255,.4);margin-bottom:3px;letter-spacing:1px}
+.fb-clinic-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fb-clinic-name{font-size:15px;font-weight:700}
+.fb-badge{background:var(--teal);color:white;font-size:10px;padding:2px 9px;border-radius:12px}
+.fb-section{padding:14px 18px;border-bottom:1px solid var(--border)}
+.fb-section:last-child{border-bottom:none}
+.fb-section-title{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:9px;padding-bottom:5px;border-bottom:2px solid var(--tealP)}
+.fb-intro{font-size:12px;line-height:1.85;color:var(--text)}
+.good-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.good-card{background:var(--greenP);border:1px solid var(--greenB);border-radius:8px;padding:10px}
+.good-num{font-size:10px;font-weight:700;color:var(--green);margin-bottom:3px}
+.good-title{font-size:11px;font-weight:700;color:#0F4D27;margin-bottom:3px}
+.good-body{font-size:11px;line-height:1.55;color:#1A5C32}
+.improve-list{display:flex;flex-direction:column;gap:7px}
+.improve-item{display:grid;grid-template-columns:26px 100px 1fr 1fr;gap:9px;align-items:start;background:var(--amberP);border:1px solid var(--amberB);border-radius:8px;padding:11px}
+.improve-num{width:22px;height:22px;border-radius:50%;background:var(--amber);color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.improve-theme{font-size:11px;font-weight:700;color:var(--amberD)}
+.improve-label{font-size:9px;color:var(--muted);margin-bottom:2px;font-weight:500}
+.improve-text,.improve-suggest{font-size:11px;line-height:1.55}
+.improve-text{color:var(--text)}.improve-suggest{color:var(--amberD)}
+.fb-footer{background:var(--navy);padding:8px 18px;text-align:right;color:rgba(255,255,255,.3);font-size:9px}
+.export-info{background:var(--tealP);border:1px solid var(--tealM);border-radius:8px;padding:11px 13px;font-size:11px;line-height:1.7;color:var(--teal);margin-bottom:9px}
+.export-info strong{display:block;margin-bottom:2px;font-size:12px}
+.api-note{background:#FDF6E9;border:1px solid #E8D5A3;border-radius:8px;padding:11px 13px;font-size:11px;line-height:1.7;color:#7A5C1E;margin-bottom:11px}
+.error-box{display:none;background:var(--redP);border:1px solid #F5BBBB;border-radius:8px;padding:10px 13px;font-size:12px;color:var(--red);margin-top:8px}
+.error-box.show{display:block}
+
+/* ══ Modal ══ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,20,35,.6);z-index:400;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
+.modal-overlay.show{display:flex}
+.modal{background:var(--white);border-radius:14px;width:100%;max-width:800px;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.modal-header{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;background:var(--white);position:sticky;top:0;z-index:1}
+.modal-title{font-size:13px;font-weight:700;color:var(--navy)}
+.modal-close{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);transition:all .13s}
+.modal-close:hover{background:var(--redP);border-color:#F5BBBB;color:var(--red)}
+.modal-body{padding:18px 22px 24px;max-height:calc(90vh - 70px);overflow-y:auto}
+.modal-actions{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- ══ Header ══ -->
+<div class="header">
+  <div class="header-brand">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18A9 9 0 0012 3zm-1 13V8l6 4-6 4z"/></svg>
+    </div>
+    <div>
+      <div class="header-title">カウンセリング分析 × Claude</div>
+      <div class="header-sub">Notta文字起こし → AI分析 → Googleドキュメント出力</div>
+    </div>
+  </div>
+  <button class="header-new-btn" onclick="showPage('new')">＋ 新規分析</button>
+</div>
+
+<div class="app-shell">
+
+  <!-- ══ Sidebar ══ -->
+  <div class="sidebar">
+    <!-- 固定ナビ -->
+    <div style="padding:10px 0 0">
+
+      <div class="nav-item" id="nav-all" onclick="showPage('all')">
+        <div class="nav-item-icon">📋</div>
+        <div class="nav-item-label">全分析一覧</div>
+        <div class="nav-item-count" id="nav-all-count">0</div>
+      </div>
+      <div class="nav-item" id="nav-new" onclick="showPage('new')">
+        <div class="nav-item-icon">＋</div>
+        <div class="nav-item-label">新規分析</div>
+      </div>
+    </div>
+
+    <div class="nav-divider"></div>
+    <div class="sidebar-section">医院リスト</div>
+    <div class="sidebar-search">
+      <input type="text" id="sidebar-search" placeholder="医院を検索…" oninput="renderSidebar()">
+    </div>
+    <div class="sidebar-nav" id="sidebar-clinic-list"></div>
+
+    <div class="sidebar-bottom">
+      <div style="margin-bottom:8px">
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:0.8px;margin-bottom:5px">🔑 APIキー設定</div>
+        <div style="display:flex;gap:5px">
+          <input id="api-key-input" type="password" placeholder="sk-ant-api03-..." style="flex:1;height:28px;padding:0 8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:white;font-family:inherit;font-size:10px;outline:none" oninput="saveApiKey()">
+        </div>
+        <div id="api-key-status" style="font-size:9px;margin-top:4px;color:rgba(255,255,255,.4)">未設定</div>
+      </div>
+      <button class="sidebar-bottom-btn" onclick="clearAll()">🗑 全データ削除</button>
+    </div>
+  </div>
+
+  <!-- ══ Main ══ -->
+  <div class="main">
+
+    <!-- ALL LIST -->
+    <div class="page show" id="page-all">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-top">
+            <div><div class="page-title">全分析一覧</div><div class="page-subtitle" id="all-subtitle"></div></div>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <input type="text" class="finput" id="all-search" placeholder="🔍 医院名・スタッフ名で検索…" oninput="renderAllList()">
+          <select class="fselect" id="all-clinic-f" onchange="renderAllList()"><option value="">すべての医院</option></select>
+          <select class="fselect" id="all-type-f" onchange="renderAllList()">
+            <option value="">すべての種別</option>
+            <option>補綴カウンセリング</option><option>初診カウンセリング</option>
+            <option>矯正カウンセリング</option><option>インプラントカウンセリング</option>
+          </select>
+          <select class="fselect" id="all-sort" onchange="renderAllList()">
+            <option value="new">新しい順</option><option value="old">古い順</option>
+          </select>
+        </div>
+        <div class="record-list" id="all-list"></div>
+      </div>
+    </div>
+
+    <!-- CLINIC DETAIL -->
+    <div class="page" id="page-clinic">
+      <div class="page-container">
+        <div class="clinic-hero" id="clinic-hero"></div>
+
+        <div class="in-tabs" id="clinic-tabs">
+          <div class="in-tab active" onclick="setClinicTab('records',this)">📋 分析履歴</div>
+          <div class="in-tab" onclick="setClinicTab('profile',this)">👥 スタッフ・傾向</div>
+        </div>
+
+        <!-- tab: records -->
+        <div id="clinic-tab-records">
+          <div class="chip-row" id="staff-chips"></div>
+          <div class="filter-bar">
+            <select class="fselect" id="c-type-f" onchange="renderClinicRecords()">
+              <option value="">すべての種別</option>
+              <option>補綴カウンセリング</option><option>初診カウンセリング</option>
+              <option>矯正カウンセリング</option><option>インプラントカウンセリング</option>
+            </select>
+            <select class="fselect" id="c-sort" onchange="renderClinicRecords()">
+              <option value="new">新しい順</option><option value="old">古い順</option>
+            </select>
+          </div>
+          <div class="record-list" id="clinic-records"></div>
+        </div>
+
+        <!-- tab: profile -->
+        <div id="clinic-tab-profile" style="display:none">
+          <div id="clinic-profile-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW ANALYSIS -->
+    <div class="page" id="page-new">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-top">
+            <div><div class="page-title">新規分析</div><div class="page-subtitle">Nottaの文字起こしをClaudeで分析します</div></div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step active" id="step1"><div class="step-num">1</div><div class="step-label">基本情報&文字起こし</div></div>
+          <div class="step" id="step2"><div class="step-num">2</div><div class="step-label">Claude AI分析</div></div>
+          <div class="step" id="step3"><div class="step-num">3</div><div class="step-label">シート確認・保存</div></div>
+          <div class="step" id="step4"><div class="step-num">4</div><div class="step-label">編集・PDF出力</div></div>
+        </div>
+
+        <div id="inputSection">
+          <div class="card">
+            <div class="card-title"><div class="icon">🏥</div>基本情報</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>医院名</label>
+                <input type="text" id="clinicName" placeholder="もみやま歯科・矯正歯科" list="clinic-datalist">
+                <datalist id="clinic-datalist"></datalist>
+              </div>
+              <div class="form-group"><label>担当スタッフ名</label><input type="text" id="staffName" placeholder="新海さん"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>カウンセリング種別</label>
+                <select id="counselingType">
+                  <option>補綴カウンセリング</option><option>初診カウンセリング</option>
+                  <option>矯正カウンセリング</option><option>インプラントカウンセリング</option><option>その他</option>
+                </select>
+              </div>
+              <div style="display:none"><input type="date" id="recordDate"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title"><div class="icon">🎙️</div>Notta 文字起こしデータ</div>
+            <textarea id="transcript" placeholder="Nottaからコピーした文字起こしテキストをここに貼り付けてください…"></textarea>
+            <div class="char-count"><span id="charCount">0</span> 文字</div>
+            <div class="api-note" style="margin-top:11px">⚠️ APIキー未設定の場合はデモデータで動作します。実運用時は CLAUDE_API_KEY 変数にキーを設定してください。</div>
+            <div class="error-box" id="errorBox"></div>
+            <button class="btn-primary" onclick="startAnalysis()">🤖 Claudeで分析する</button>
+          </div>
+        </div>
+
+        <div class="card loading-box" id="loadingBox">
+          <div class="spinner"></div>
+          <div class="loading-text">Claude AIが分析しています…</div>
+          <div class="loading-step" id="loadingStep">カウンセリングの構造を解析中</div>
+        </div>
+
+        <div class="result-box" id="resultBox">
+          <div class="fb-sheet" id="fbSheet">
+            <div class="fb-header">
+              <div class="fb-header-top">CASE FEEDBACK REPORT　／　カウンセリング振り返りレポート</div>
+              <div class="fb-clinic-row">
+                <span class="fb-clinic-name" id="res-clinic">—</span>
+                <span class="fb-badge" id="res-badge">—</span>
+              </div>
+            </div>
+            <div class="fb-section"><div class="fb-section-title">■ はじめに</div><div class="fb-intro" id="res-intro"></div></div>
+            <div class="fb-section" id="res-steps-section"><div class="fb-section-title">■ 8ステップ評価</div><div id="res-steps"></div></div>
+            <div class="fb-section"><div class="fb-section-title">■ すでに素敵なポイント ✨</div><div class="good-grid" id="res-goods"></div></div>
+            <div class="fb-section"><div class="fb-section-title">■ もう少し工夫できそうなポイント</div><div class="improve-list" id="res-improves"></div></div>
+            <div class="fb-footer">Counseling Bootcamp ／ 株式会社SABU</div>
+          </div>
+          <div class="card">
+            <div class="card-title"><div class="icon">💾</div>保存 &amp; PDF出力</div>
+            <div class="export-info"><strong>✏️ 内容を編集してからPDF出力できます</strong>「編集してPDF出力」ボタンで内容を確認・修正し、そのままPDFとして保存できます。</div>
+            <div class="btn-row">
+              <button class="btn-sm teal" onclick="saveRecord()">💾 ツールに保存</button>
+              <button class="btn-sm" onclick="openPdfEditor(null, analysisResult)">✏️ 編集してPDF出力</button>
+              <button class="btn-sm ghost" onclick="resetForm()">↩ 新しい分析</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ══ PDF Editor (フルスクリーンオーバーレイ) ══ -->
+<div id="pdf-overlay" style="display:none;position:fixed;inset:0;z-index:500;display:none;flex-direction:column;background:var(--bg)">
+  <!-- toolbar -->
+  <div style="background:var(--navy);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:48px;flex-shrink:0">
+    <div>
+      <div id="pdf-title" style="color:white;font-size:13px;font-weight:700"></div>
+      <div style="color:rgba(255,255,255,.4);font-size:10px;margin-top:1px">左パネルで編集 → 右プレビューに即反映 → 印刷ボタンでPDF保存</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="savePdfEdit()" style="background:var(--teal);color:white;border:none;border-radius:8px;padding:0 16px;height:34px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">💾 保存する</button>
+      <button onclick="window.print()" style="background:#27AE60;color:white;border:none;border-radius:8px;padding:0 16px;height:34px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">🖨️ PDFとして保存</button>
+      <button onclick="closePdfEditor()" style="background:rgba(255,255,255,.1);color:white;border:none;border-radius:8px;padding:0 14px;height:34px;font-family:inherit;font-size:12px;cursor:pointer">✕ 閉じる</button>
+    </div>
+  </div>
+  <!-- layout -->
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- 左：編集パネル -->
+    <div id="pdf-edit-panel" style="width:300px;flex-shrink:0;overflow-y:auto;background:white;border-right:1px solid var(--border);padding:14px"></div>
+    <!-- 右：プレビュー -->
+    <div style="flex:1;overflow-y:auto;background:#c8c8c8;display:flex;justify-content:center;padding:20px">
+      <div id="pdf-preview" style="width:210mm;min-height:297mm;background:white;box-shadow:0 4px 24px rgba(0,0,0,.3);padding:11mm 12mm;flex-shrink:0"></div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const CLAUDE_API_URL='https://api.anthropic.com/v1/messages';
+const CLAUDE_API_KEY=''; // localStorageから読み込むので空でOK
+const STORAGE_KEY='counseling_v4';
+
+function getApiKey(){ return localStorage.getItem('claude_api_key')||CLAUDE_API_KEY||''; }
+function saveApiKey(){
+  const val=document.getElementById('api-key-input').value.trim();
+  if(val){ localStorage.setItem('claude_api_key',val); }
+  else { localStorage.removeItem('claude_api_key'); }
+  updateApiKeyStatus();
+}
+function updateApiKeyStatus(){
+  const key=getApiKey();
+  const el=document.getElementById('api-key-status');
+  if(!el)return;
+  if(key){ el.textContent='✅ 設定済み'; el.style.color='#7DC99A'; }
+  else { el.textContent='未設定（デモモードで動作）'; el.style.color='rgba(255,255,255,.4)'; }
+}
+function initApiKeyUI(){
+  const key=getApiKey();
+  const inp=document.getElementById('api-key-input');
+  if(inp&&key) inp.value=key;
+  updateApiKeyStatus();
+}
+
+// ── 8ステップ定義・スコア定数（先頭で定義） ──
+const STEPS_DEF=[
+  {num:1,label:'全体像を伝える',   hint:'冒頭で所要時間と内容を宣言し、患者を安心させられたか'},
+  {num:2,label:'ねぎらいを入れる', hint:'通院への感謝・ねぎらいを短く添えられたか'},
+  {num:3,label:'既存知識と地雷確認',hint:'他院経験を確認し、不信感の地雷を避けられたか'},
+  {num:4,label:'優先順位を3択で聞く',hint:'見た目・持ち・体への優しさの3択で自己選択を促せたか'},
+  {num:5,label:'一番いいものを言い切る',hint:'ベストを迷わず提示し、デメリットも正直に伝えたか'},
+  {num:6,label:'比較対象を1つだけ出す',hint:'選択肢を2項対立に絞り、ベストを選ぶ理由を作れたか'},
+  {num:7,label:'料金表を見せて質問を受ける',hint:'オープン質問で受け止め、急がず丁寧に回答できたか'},
+  {num:8,label:'本人の言葉で締める',hint:'患者自身に言語化させ、背中をそっと押せたか'},
+];
+const SCORE_LABEL={3:'◎ できている！',2:'○ あとすこし',1:'△ もうひとふんばり！',0:'— 未実施'};
+const SCORE_COLOR={3:'#1A7A40',2:'#1E7B7B',1:'#C87A1A',0:'#6B7A8D'};
+const SCORE_BG={3:'#EAF7EF',2:'#E8F4F4',1:'#FEF5EC',0:'#F4F6F9'};
+
+let analysisResult=null;
+let currentClinic=null;
+let activeStaff=null;
+let currentClinicTab='records';
+
+const AVATARS=['🦷','🏥','😊','🌸','🌿','⭐','🔵','🟢','💎','🎯','🌙','🏆'];
+const AVATAR_BG=['#E8F4F4','#EAF7EF','#F0EAF8','#FEF5EC','#EAF0F8','#FDF6E9'];
+function clinicAvatar(n){let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))&0xffff;return AVATARS[h%AVATARS.length]}
+function clinicBg(n){let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))&0xffff;return AVATAR_BG[h%AVATAR_BG.length]}
+
+const TYPE_BADGE={'補綴カウンセリング':'','初診カウンセリング':'green','矯正カウンセリング':'purple','インプラントカウンセリング':'amber'};
+
+// ── Storage ──
+function getRecords(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return[]}}
+function saveRecords(r){localStorage.setItem(STORAGE_KEY,JSON.stringify(r))}
+
+// ── Init ──
+document.getElementById('recordDate').valueAsDate=new Date();
+document.getElementById('transcript').addEventListener('input',function(){
+  document.getElementById('charCount').textContent=this.value.length.toLocaleString();
+});
+renderSidebar();
+updateDatalistClinics();
+initApiKeyUI();
+
+// ── Navigation ──
+function showPage(name,clinicName){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('show'));
+  document.getElementById('page-'+name).classList.add('show');
+  // sidebar active
+  document.querySelectorAll('.nav-item[id^="nav-"]').forEach(el=>el.classList.remove('active'));
+  if(name==='all')       document.getElementById('nav-all')?.classList.add('active');
+  if(name==='new')       document.getElementById('nav-new')?.classList.add('active');
+  // clinic tabs in sidebar
+  document.querySelectorAll('.sidebar-clinic-item').forEach(el=>{
+    el.classList.toggle('active', name==='clinic' && el.dataset.clinic===clinicName);
+  });
+  if(name==='all') renderAllList();
+  if(name==='clinic')    openClinicPage(clinicName||currentClinic);
+}
+
+// ── Sidebar ──
+function renderSidebar(){
+  const records=getRecords();
+  const q=document.getElementById('sidebar-search').value.toLowerCase();
+  // update all count badge
+  document.getElementById('nav-all-count').textContent=records.length;
+
+  const clinicMap=buildClinicMap(records);
+  let clinics=Object.values(clinicMap).sort((a,b)=>b.count-a.count);
+  if(q) clinics=clinics.filter(c=>c.name.toLowerCase().includes(q));
+
+  document.getElementById('sidebar-clinic-list').innerHTML=clinics.map(c=>`
+    <div class="nav-item sidebar-clinic-item" data-clinic="${escHtml(c.name)}"
+         id="nav-clinic-${escHtml(c.name)}"
+         onclick="showPage('clinic','${escHtml(c.name)}')">
+      <div class="nav-item-icon">${clinicAvatar(c.name)}</div>
+      <div class="nav-item-label">${escHtml(c.name)}</div>
+      <div class="nav-item-count">${c.count}</div>
+    </div>
+  `).join('') || '<div style="padding:10px 14px;font-size:11px;color:rgba(255,255,255,.3)">まだ医院データがありません</div>';
+
+  // mark active clinic
+  if(currentClinic){
+    document.querySelectorAll('.sidebar-clinic-item').forEach(el=>{
+      el.classList.toggle('active',el.dataset.clinic===currentClinic);
+    });
+  }
+}
+
+
+// ── All list ──
+function renderAllList(){
+  const records=getRecords();
+  const clinics=[...new Set(records.map(r=>r.clinic))].sort();
+  const cf=document.getElementById('all-clinic-f');
+  const curCF=cf.value;
+  cf.innerHTML='<option value="">すべての医院</option>'+clinics.map(c=>`<option${c===curCF?' selected':''}>${escHtml(c)}</option>`).join('');
+
+  const q=document.getElementById('all-search').value.toLowerCase();
+  const typeF=document.getElementById('all-type-f').value;
+  const sort=document.getElementById('all-sort').value;
+  let filtered=records;
+  if(curCF) filtered=filtered.filter(r=>r.clinic===curCF);
+  if(typeF) filtered=filtered.filter(r=>r.type===typeF);
+  if(q) filtered=filtered.filter(r=>(r.clinic+r.staff).toLowerCase().includes(q));
+  filtered.sort((a,b)=>sort==='new'?new Date(b.savedAt)-new Date(a.savedAt):new Date(a.savedAt)-new Date(b.savedAt));
+
+  document.getElementById('all-subtitle').textContent=`全${records.length}件中 ${filtered.length}件を表示`;
+  document.getElementById('all-list').innerHTML=filtered.length
+    ?filtered.map(r=>recordCardHTML(r)).join('')
+    :'<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">該当するデータがありません</div></div>';
+}
+
+// ── Clinic page ──
+function openClinicPage(clinicName){
+  if(!clinicName) return;
+  currentClinic=clinicName;
+  activeStaff=null;
+  currentClinicTab='records';
+  document.getElementById('c-type-f').value='';
+  document.getElementById('c-sort').value='new';
+  setClinicTab('records',document.querySelector('.in-tab'));
+
+  const records=getRecords().filter(r=>r.clinic===clinicName);
+  const staffs=[...new Set(records.map(r=>r.staff))];
+  const thisMonth=records.filter(r=>{const d=new Date(r.savedAt),n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()});
+
+  // Hero
+  document.getElementById('clinic-hero').innerHTML=`
+    <div class="clinic-hero-avatar" style="background:${clinicBg(clinicName)}">${clinicAvatar(clinicName)}</div>
+    <div style="flex:1">
+      <div class="clinic-hero-name">${escHtml(clinicName)}</div>
+      <div class="clinic-hero-sub">スタッフ：${staffs.map(s=>escHtml(s)).join('・')}</div>
+    </div>
+    <div class="clinic-hero-stats">
+      <div class="hs"><div class="hs-val">${records.length}</div><div class="hs-lbl">総分析件数</div></div>
+      <div class="hs"><div class="hs-val">${thisMonth.length}</div><div class="hs-lbl">今月</div></div>
+      <div class="hs"><div class="hs-val">${staffs.length}</div><div class="hs-lbl">スタッフ数</div></div>
+    </div>`;
+
+  renderStaffChips(staffs);
+  renderClinicRecords();
+  renderClinicProfile(records,staffs);
+  renderSidebar(); // update active
+}
+
+function renderStaffChips(staffs){
+  document.getElementById('staff-chips').innerHTML=
+    `<button class="chip${!activeStaff?' active':''}" onclick="setStaffFilter(null)">👥 全員</button>`+
+    staffs.map(s=>`<button class="chip${activeStaff===s?' active':''}" onclick="setStaffFilter('${escHtml(s)}')">${escHtml(s)}</button>`).join('');
+}
+
+function setStaffFilter(s){
+  activeStaff=s;
+  const records=getRecords().filter(r=>r.clinic===currentClinic);
+  renderStaffChips([...new Set(records.map(r=>r.staff))]);
+  renderClinicRecords();
+}
+
+function renderClinicRecords(){
+  if(!currentClinic) return;
+  let records=getRecords().filter(r=>r.clinic===currentClinic);
+  const typeF=document.getElementById('c-type-f').value;
+  const sort=document.getElementById('c-sort').value;
+  if(activeStaff) records=records.filter(r=>r.staff===activeStaff);
+  if(typeF) records=records.filter(r=>r.type===typeF);
+  records.sort((a,b)=>sort==='new'?new Date(b.savedAt)-new Date(a.savedAt):new Date(a.savedAt)-new Date(b.savedAt));
+  document.getElementById('clinic-records').innerHTML=records.length
+    ?records.map(r=>recordCardHTML(r)).join('')
+    :'<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">該当する分析データがありません</div></div>';
+}
+
+function renderClinicProfile(records,staffs){
+  // Type breakdown
+  const types={};
+  records.forEach(r=>types[r.type]=(types[r.type]||0)+1);
+  const typeRows=Object.entries(types).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="width:120px;font-size:12px;color:var(--text)">${t.replace('カウンセリング','')}</div>
+      <div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden">
+        <div style="width:${Math.round(n/records.length*100)}%;height:100%;background:var(--teal);border-radius:4px"></div>
+      </div>
+      <div style="width:30px;text-align:right;font-size:12px;font-weight:700;color:var(--navy)">${n}</div>
+    </div>`).join('');
+
+  // Staff breakdown
+  const staffRows=staffs.map(s=>{
+    const cnt=records.filter(r=>r.staff===s).length;
+    const types2={};
+    records.filter(r=>r.staff===s).forEach(r=>types2[r.type]=(types2[r.type]||0)+1);
+    const topT=Object.entries(types2).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+    return `<div style="background:var(--white);border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--tealP);display:flex;align-items:center;justify-content:center;font-size:14px">👤</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--navy)">${escHtml(s)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">よく担当：${topT||'—'}</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--teal)">${cnt}</div><div style="font-size:10px;color:var(--muted)">件</div></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('clinic-profile-content').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px">📊 種別の内訳</div>
+        ${typeRows||'<div style="color:var(--muted);font-size:12px">データなし</div>'}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px">👥 スタッフ別</div>
+        ${staffRows||'<div style="color:var(--muted);font-size:12px">データなし</div>'}
+      </div>
+    </div>`;
+}
+
+function setClinicTab(tab,el){
+  currentClinicTab=tab;
+  document.querySelectorAll('.in-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#clinic-tabs .in-tab').forEach((t,i)=>{if((i===0&&tab==='records')||(i===1&&tab==='profile'))t.classList.add('active')});
+  document.getElementById('clinic-tab-records').style.display=tab==='records'?'':'none';
+  document.getElementById('clinic-tab-profile').style.display=tab==='profile'?'':'none';
+}
+
+// ── Record card ──
+function recordCardHTML(r){
+  const d=r.result||r;
+  const badgeCls=TYPE_BADGE[r.type]||'';
+  return `
+  <div class="record-card" onclick="openDetail('${r.id}')">
+    <div>
+      <div class="record-meta">
+        <span class="badge ${badgeCls}">${r.type}</span>
+        <span class="badge amber">${escHtml(r.staff)}</span>
+      </div>
+      <div class="record-clinic-name">${escHtml(r.staff)}</div>
+      <div class="record-sub">${escHtml(r.clinic)}　／　作成日：${new Date(r.savedAt).toLocaleDateString('ja-JP')}</div>
+      <div class="record-preview">${escHtml(d.intro||'')}</div>
+    </div>
+    <div class="rec-actions" onclick="event.stopPropagation()">
+      <button class="icon-btn" onclick="openPdfEditor('${r.id}',null)" title="編集・PDF出力">🖨️</button>
+      <button class="icon-btn danger" onclick="deleteRecord('${r.id}')" title="削除">🗑</button>
+    </div>
+  </div>`;
+}
+
+// ── Clinic map ──
+function buildClinicMap(records){
+  const map={};
+  for(const r of records){
+    if(!map[r.clinic]) map[r.clinic]={name:r.clinic,count:0,staffs:new Set(),types:{}};
+    map[r.clinic].count++;
+    map[r.clinic].staffs.add(r.staff);
+    map[r.clinic].types[r.type]=(map[r.clinic].types[r.type]||0)+1;
+  }
+  return map;
+}
+
+// ── Analysis ──
+function setStep(n){for(let i=1;i<=4;i++){const el=document.getElementById('step'+i);if(el)el.className='step'+(i<n?' done':i===n?' active':'')}}
+
+async function startAnalysis(){
+  const clinic=document.getElementById('clinicName').value.trim();
+  const staff=document.getElementById('staffName').value.trim();
+  const type=document.getElementById('counselingType').value;
+  const date=document.getElementById('recordDate').value;
+  const transcript=document.getElementById('transcript').value.trim();
+  const errBox=document.getElementById('errorBox');
+  errBox.className='error-box';
+  if(!clinic||!staff||!transcript){errBox.textContent='医院名・担当者名・文字起こしを入力してください。';errBox.className='error-box show';return}
+  document.getElementById('inputSection').style.display='none';
+  document.getElementById('loadingBox').className='card loading-box show';
+  document.getElementById('resultBox').className='result-box';
+  setStep(2);
+  const steps=['カウンセリングの構造を解析中…','良い点を抽出しています…','改善ポイントを特定中…','フィードバックシートを生成中…'];
+  let si=0;const stepEl=document.getElementById('loadingStep');
+  const timer=setInterval(()=>{stepEl.textContent=steps[si=(si+1)%steps.length]},1800);
+  try{
+    const result=await callClaude(buildPrompt(clinic,staff,type,date,transcript));
+    clearInterval(timer);
+    analysisResult={...result,clinic,staff,type,date};
+    renderResult(analysisResult);
+    setStep(3);
+  }catch(e){
+    clearInterval(timer);
+    document.getElementById('inputSection').style.display='block';
+    document.getElementById('loadingBox').className='card loading-box';
+    setStep(1);
+    errBox.textContent='エラー: '+e.message;
+    errBox.className='error-box show';
+  }
+}
+
+function buildPrompt(clinic,staff,type,date,transcript){
+  const isHotetsu = type === '補綴カウンセリング';
+
+  if(isHotetsu){
+    // ── 補綴カウンセリング：8ステップ評価あり ──
+    const stepsText=STEPS_DEF.map(s=>`STEP${s.num}「${s.label}」: ${s.hint}`).join('\n');
+    return `あなたは歯科クリニックの専任カウンセリングコーチです。
+スタッフの成長を心から応援する立場で、録音を丁寧に聞いた上でフィードバックしてください。
+
+【あなたのスタンス】
+- まず「できていること」を具体的に見つけて、しっかり言葉にして褒める
+- 改善点は「ダメだった」ではなく「ここをちょっと変えるだけでもっと良くなる！」という視点で伝える
+- 読んだスタッフが「よし、次も頑張ろう！」と思えるような温かいトーンで書く
+- 抽象的な言葉ではなく、文字起こしの具体的な発言を引用して評価する
+
+【評価する8ステップの型】
+${stepsText}
+
+【基本情報】
+医院名: ${clinic}　担当者: ${staff}　種別: ${type}　日付: ${date}
+
+【文字起こし】
+${transcript}
+
+以下のJSON形式のみで出力してください（前後テキスト・コードブロック不要）:
+{
+  "intro": "担当者名を呼びかけて始める。録音を実際に聞いた感想として、具体的に光っていた場面を1つ挙げて褒め、さらに良くなれる予感も添える。温かく・具体的に【100文字以内】",
+  "steps": [
+    {"num":1,"label":"全体像を伝える","score":0〜3,"good":"できていた点を具体的に【40文字以内・なければ空文字】","improve":"次にやってみてほしいことを前向きな表現で【40文字以内・なければ空文字】"},
+    {"num":2,"label":"ねぎらいを入れる","score":0〜3,"good":"","improve":""},
+    {"num":3,"label":"既存知識と地雷確認","score":0〜3,"good":"","improve":""},
+    {"num":4,"label":"優先順位を3択で聞く","score":0〜3,"good":"","improve":""},
+    {"num":5,"label":"一番いいものを言い切る","score":0〜3,"good":"","improve":""},
+    {"num":6,"label":"比較対象を1つだけ出す","score":0〜3,"good":"","improve":""},
+    {"num":7,"label":"料金表を見せて質問を受ける","score":0〜3,"good":"","improve":""},
+    {"num":8,"label":"本人の言葉で締める","score":0〜3,"good":"","improve":""}
+  ],
+  "goods": [
+    {"num":"①","title":"光っていたポイントのタイトル【12文字以内】","body":"なぜ良かったのかを具体的に【50文字以内】"},
+    {"num":"②","title":"","body":""},
+    {"num":"③","title":"","body":""}
+  ],
+  "improves": [
+    {"theme":"テーマ【10文字以内】","issue":"現状の気づきを責めず事実として【35文字以内】","suggestion":"具体的にどう変えるか前向きに【45文字以内】"},
+    {"theme":"","issue":"","suggestion":""},
+    {"theme":"","issue":"","suggestion":""},
+    {"theme":"","issue":"","suggestion":""}
+  ]
+}
+採点：score 3=◎できている！ 2=○あとすこし 1=△もうひとふんばり！ 0=—未実施
+必ず文字起こしの内容を根拠に評価してください。架空の内容は書かないでください。`;
+
+  } else {
+    // ── 補綴以外：8ステップなしの汎用フィードバック ──
+    return `あなたは歯科クリニックの専任カウンセリングコーチです。
+スタッフの成長を心から応援する立場で、録音を丁寧に聞いた上でフィードバックしてください。
+
+【あなたのスタンス】
+- まず「できていること」を具体的に見つけて、しっかり言葉にして褒める
+- 改善点は「ここをちょっと変えるだけでもっと良くなる！」という視点で伝える
+- 読んだスタッフが「よし、次も頑張ろう！」と思えるような温かいトーンで書く
+- 文字起こしの具体的な発言を引用して評価する
+
+【評価の観点】
+- 傾聴力・共感表現（患者の話をしっかり受け止めているか）
+- 質問力（患者のニーズを引き出せているか）
+- 説明力（わかりやすく・安心感を持って伝えられているか）
+- 信頼形成（患者が話しやすい空気を作れているか）
+- クロージング（次のステップを自然に案内できているか）
+
+【基本情報】
+医院名: ${clinic}　担当者: ${staff}　種別: ${type}　日付: ${date}
+
+【文字起こし】
+${transcript}
+
+以下のJSON形式のみで出力してください（前後テキスト・コードブロック不要）:
+{
+  "intro": "担当者名を呼びかけて始める。具体的に光っていた場面を1つ挙げて褒め、さらに良くなれる予感も添える【100文字以内】",
+  "steps": [],
+  "goods": [
+    {"num":"①","title":"光っていたポイントのタイトル【12文字以内】","body":"なぜ良かったのかを具体的に【50文字以内】"},
+    {"num":"②","title":"","body":""},
+    {"num":"③","title":"","body":""}
+  ],
+  "improves": [
+    {"theme":"テーマ【10文字以内】","issue":"現状の気づきを責めず事実として【35文字以内】","suggestion":"具体的にどう変えるか前向きに【45文字以内】"},
+    {"theme":"","issue":"","suggestion":""},
+    {"theme":"","issue":"","suggestion":""},
+    {"theme":"","issue":"","suggestion":""}
+  ]
+}
+必ず文字起こしの内容を根拠に評価してください。架空の内容は書かないでください。
+improvesのsuggestionは必ず前向きで具体的な表現にしてください。`;
+  }
+}
+
+async function callClaude(prompt){
+  const apiKey=getApiKey();
+  if(apiKey){
+    const res=await fetch(CLAUDE_API_URL,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:prompt}]})});
+    if(!res.ok) throw new Error('API error: '+res.status);
+    const data=await res.json();
+    return JSON.parse(data.content.find(b=>b.type==='text')?.text.replace(/```json|```/g,'').trim());
+  }
+  await new Promise(r=>setTimeout(r,2500));
+  return {
+    intro:'録音聞きました！ねぎらいや事前確認など丁寧に実践できていました。STEPの型を意識するとさらに安定します。',
+    steps:[
+      {num:1,label:'全体像を伝える',score:3,good:'冒頭で所要時間と内容を宣言できていました。',improve:''},
+      {num:2,label:'ねぎらいを入れる',score:3,good:'通院への感謝を自然に伝えられていました。',improve:''},
+      {num:3,label:'既存知識と地雷確認',score:2,good:'他院経験の確認ができていました。',improve:'深掘りの一言があるとより安心です。'},
+      {num:4,label:'優先順位を3択で聞く',score:1,good:'',improve:'3択で患者に選ばせるプロセスが抜けています。'},
+      {num:5,label:'一番いいものを言い切る',score:2,good:'推奨の流れは作れていました。',improve:'言い切る力強さがもう少し欲しいです。'},
+      {num:6,label:'比較対象を1つだけ出す',score:2,good:'銀歯との比較を出せていました。',improve:'2項対立に絞る意識を持ちましょう。'},
+      {num:7,label:'料金表を見せて質問を受ける',score:2,good:'料金の案内はできていました。',improve:'オープン質問から入る順序を意識して。'},
+      {num:8,label:'本人の言葉で締める',score:1,good:'',improve:'患者に言語化させるクロージングが必要です。'},
+    ],
+    goods:[
+      {num:'①',title:'ねぎらいの自然さ',body:'感謝が押しつけがましくなく場を柔らかくできました。'},
+      {num:'②',title:'たとえ話の上手さ',body:'専門用語を日常のイメージに変換する力が光りました。'},
+      {num:'③',title:'料金の説明',body:'金額をフラットに一度だけ伝えられていました。'},
+    ],
+    improves:[
+      {theme:'3択を使う',step:4,issue:'STEP4の自己選択プロセスが抜けています。',suggestion:'「見た目・持ち・優しさ」の3択を必ず使いましょう。'},
+      {theme:'言い切る力',step:5,issue:'曖昧な表現が目立ちました。',suggestion:'「一番おすすめです」と自信を持って言い切りましょう。'},
+      {theme:'締め方の型',step:8,issue:'クロージングがこちら主導になっています。',suggestion:'「何が一番気になりますか?」と患者に言語化させましょう。'},
+      {theme:'深掘り質問',step:3,issue:'他院経験の深掘りが不十分です。',suggestion:'「どんなふうに聞かれましたか?」と必ず確認しましょう。'},
+    ]
+  };
+}
+
+function renderResult(data){
+  document.getElementById('loadingBox').className='card loading-box';
+  document.getElementById('res-clinic').textContent=data.staff;
+  document.getElementById('res-badge').textContent=data.clinic+'　/　'+data.type;
+  document.getElementById('res-intro').textContent=data.intro;
+
+  // 8ステップ評価（補綴のみ表示）
+  const stepsSection=document.getElementById('res-steps-section');
+  const stepsEl=document.getElementById('res-steps');
+  if(data.steps && data.steps.length > 0){
+    if(stepsSection) stepsSection.style.display='';
+    if(stepsEl){
+      stepsEl.innerHTML=data.steps.map(s=>`
+      <div style="display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:start;background:${SCORE_BG[s.score]};border:1px solid ${SCORE_COLOR[s.score]}30;border-radius:9px;padding:11px 13px;margin-bottom:7px">
+        <div style="width:24px;height:24px;border-radius:50%;background:${SCORE_COLOR[s.score]};color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${s.num}</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:3px">STEP${s.num}　${escHtml(s.label)}</div>
+          ${s.good?`<div style="font-size:11px;color:#1A7A40;line-height:1.5;margin-bottom:2px">✅ ${escHtml(s.good)}</div>`:''}
+          ${s.improve?`<div style="font-size:11px;color:#C87A1A;line-height:1.5">💡 ${escHtml(s.improve)}</div>`:''}
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <span style="font-size:11px;font-weight:700;color:${SCORE_COLOR[s.score]};background:white;border:1px solid ${SCORE_COLOR[s.score]}40;border-radius:6px;padding:2px 8px">${SCORE_LABEL[s.score]||''}</span>
+        </div>
+      </div>`).join('');
+    }
+  } else {
+    if(stepsSection) stepsSection.style.display='none';
+  }
+
+  // 良かった点
+  document.getElementById('res-goods').innerHTML=data.goods.map(g=>`<div class="good-card"><div class="good-num">${g.num}</div><div class="good-title">${escHtml(g.title)}</div><div class="good-body">${escHtml(g.body)}</div></div>`).join('');
+
+  // 改善ポイント（STEPタグ付き）
+  document.getElementById('res-improves').innerHTML=data.improves.map((imp,i)=>`
+    <div class="improve-item">
+      <div class="improve-num">${i+1}</div>
+      <div>
+        <div class="improve-theme">${escHtml(imp.theme)}</div>
+
+      </div>
+      <div><div class="improve-label">気づいたこと</div><div class="improve-text">${escHtml(imp.issue)}</div></div>
+      <div><div class="improve-label">こう変えてみませんか?</div><div class="improve-suggest">${escHtml(imp.suggestion)}</div></div>
+    </div>`).join('');
+  document.getElementById('resultBox').className='result-box show';
+  setStep(4);
+}
+
+// ── Save/Delete ──
+function saveRecord(){
+  if(!analysisResult) return;
+  const records=getRecords();
+  const id='rec_'+Date.now();
+  const{clinic,staff,type,date,...result}=analysisResult;
+  records.push({id,savedAt:new Date().toISOString(),clinic,staff,type,date,result});
+  saveRecords(records);
+  renderSidebar();
+  updateDatalistClinics();
+  alert('✅ 保存しました！左のサイドバーから医院を選んで確認できます。');
+}
+
+function deleteRecord(id){
+  if(!confirm('この分析データを削除しますか？')) return;
+  saveRecords(getRecords().filter(r=>r.id!==id));
+  renderSidebar();renderAllList();
+  if(currentClinic) renderClinicRecords();
+  renderSidebar();
+}
+
+function clearAll(){
+  if(!confirm('全件削除しますか？この操作は元に戻せません。')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  currentClinic=null;
+  renderSidebar(); showPage('all');
+}
+
+function updateDatalistClinics(){
+  const clinics=[...new Set(getRecords().map(r=>r.clinic))];
+  document.getElementById('clinic-datalist').innerHTML=clinics.map(c=>`<option value="${escHtml(c)}">`).join('');
+}
+
+function resetForm(){
+  document.getElementById('inputSection').style.display='block';
+  document.getElementById('resultBox').className='result-box';
+  document.getElementById('transcript').value='';
+  document.getElementById('charCount').textContent='0';
+  analysisResult=null;
+  setStep(1);
+}
+
+// ── PDF Editor (統合版) ──
+const NUMS=['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+const PC='-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+let PD=null;
+
+function openPdfEditor(id,data){
+  let raw;
+  if(id){raw=getRecords().find(x=>x.id===id);if(!raw)return;}
+  else{if(!data)return;raw=data;}
+  const d=raw.result||raw;
+  PD={
+    _id: raw.id || null,  // 既存レコードのIDを保持
+    clinic:raw.clinic||'',staff:raw.staff||'',type:raw.type||'',date:raw.date||'',
+    intro:d.intro||'',overall:d.overall||'B',
+    steps:JSON.parse(JSON.stringify(d.steps||[])),
+    goods:JSON.parse(JSON.stringify(d.goods||[])),
+    improves:JSON.parse(JSON.stringify(d.improves||[])),
+  };
+  PD.goods.forEach((g,i)=>g.num=NUMS[i]||`(${i+1})`);
+  document.getElementById('pdf-title').textContent=PD.staff+'　/　'+PD.clinic;
+  renderPdfPanel();
+  pdfUpdate();
+  document.getElementById('pdf-overlay').style.display='flex';
+}
+
+function savePdfEdit(){
+  if(!PD) return;
+  pdfCollect(); // 最新の入力内容を反映
+  const records = getRecords();
+  const {_id, ...payload} = PD;
+  const result = {
+    intro: payload.intro, overall: payload.overall,
+    steps: payload.steps, goods: payload.goods, improves: payload.improves,
+  };
+  if(_id){
+    // 既存レコードを上書き
+    const idx = records.findIndex(r=>r.id===_id);
+    if(idx>=0){
+      records[idx].result = result;
+      records[idx].clinic = payload.clinic;
+      records[idx].staff  = payload.staff;
+      records[idx].type   = payload.type;
+      records[idx].date   = payload.date;
+      saveRecords(records);
+      renderSidebar();
+      renderAllList();
+      if(currentClinic) renderClinicRecords();
+      alert('✅ 保存しました！');
+      return;
+    }
+  }
+  // 新規レコードとして保存
+  const id='rec_'+Date.now();
+  records.push({id, savedAt:new Date().toISOString(), clinic:payload.clinic, staff:payload.staff, type:payload.type, date:payload.date, result});
+  saveRecords(records);
+  PD._id = id; // 次回から上書きできるようにIDをセット
+  renderSidebar();
+  renderAllList();
+  updateDatalistClinics();
+  alert('✅ 保存しました！「全分析一覧」から確認できます。');
+}
+
+function closePdfEditor(){
+  document.getElementById('pdf-overlay').style.display='none';
+  PD=null;
+}
+
+function renderPdfPanel(){
+  let html=`
+  <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase">基本情報</div>
+  <div style="margin-bottom:8px">
+    <label style="font-size:10px;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">はじめに</label>
+    <textarea id="pd-intro" oninput="pdfCollect()" rows="3" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:11px;resize:vertical;line-height:1.6;outline:none">${escHtml(PD.intro)}</textarea>
+  </div>
+  ${PD.steps && PD.steps.length > 0 ? `
+  <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between" onclick="pdToggle('pd-steps-body','pd-steps-arrow')">
+    <span>8ステップ評価</span><span id="pd-steps-arrow" style="font-size:9px;display:inline-block;transform:rotate(-90deg);transition:transform .2s">▼</span>
+  </div>
+  <div id="pd-steps-body" style="max-height:0;overflow:hidden;transition:max-height .25s ease">
+    ${PD.steps.map((s,i)=>`
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;color:var(--navy);margin-bottom:5px">STEP${s.num}　${escHtml(s.label)}</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+        <label style="font-size:9px;color:var(--muted);width:28px;flex-shrink:0">評価</label>
+        <select data-s="${i}" data-f="score" onchange="pdfCollect()" style="flex:1;height:24px;padding:0 5px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none">
+          <option value="3" ${s.score==3?'selected':''}>◎ できている！</option>
+          <option value="2" ${s.score==2?'selected':''}>○ あとすこし</option>
+          <option value="1" ${s.score==1?'selected':''}>△ もうひとふんばり！</option>
+          <option value="0" ${s.score==0?'selected':''}>— 未実施</option>
+        </select>
+      </div>
+      <span style="font-size:9px;color:var(--green);display:block;margin-bottom:2px">✅ できていた点</span>
+      <input data-s="${i}" data-f="good" value="${escAttr(s.good||'')}" oninput="pdfCollect()" placeholder="（任意）" style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block;margin-bottom:3px">
+      <span style="font-size:9px;color:var(--amber);display:block;margin-bottom:2px">💡 改善ポイント</span>
+      <input data-s="${i}" data-f="improve" value="${escAttr(s.improve||'')}" oninput="pdfCollect()" placeholder="（任意）" style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block">
+    </div>`).join('')}
+  </div>` : ''}
+  <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin:12px 0 6px;display:flex;align-items:center;justify-content:space-between">
+    <span>素敵なポイント</span>
+    <button onclick="pdAddGood()" style="height:20px;padding:0 7px;font-size:9px;font-weight:700;background:var(--tealP);color:var(--teal);border:1px solid var(--tealM);border-radius:4px;cursor:pointer;font-family:inherit">＋ 追加</button>
+  </div>
+  <div id="pd-goods">${PD.goods.map((g,i)=>pdGoodHTML(g,i)).join('')}</div>
+  <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin:12px 0 6px;display:flex;align-items:center;justify-content:space-between">
+    <span>工夫できそうなポイント</span>
+    <button onclick="pdAddImprove()" style="height:20px;padding:0 7px;font-size:9px;font-weight:700;background:var(--tealP);color:var(--teal);border:1px solid var(--tealM);border-radius:4px;cursor:pointer;font-family:inherit">＋ 追加</button>
+  </div>
+  <div id="pd-improves">${PD.improves.map((imp,i)=>pdImpHTML(imp,i)).join('')}</div>`;
+  document.getElementById('pdf-edit-panel').innerHTML=html;
+}
+
+function pdGoodHTML(g,i){
+  return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:6px;position:relative">
+    <button onclick="pdDelGood(${i})" style="position:absolute;top:5px;right:5px;width:16px;height:16px;border:1px solid var(--border);border-radius:3px;background:white;color:var(--muted);cursor:pointer;font-size:10px;line-height:1">✕</button>
+    <div style="font-size:10px;font-weight:700;color:var(--green);margin-bottom:4px">${g.num}</div>
+    <input data-g="${i}" data-f="title" value="${escAttr(g.title||'')}" oninput="pdfCollect()" placeholder="タイトル" style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block;margin-bottom:3px">
+    <input data-g="${i}" data-f="body"  value="${escAttr(g.body||'')}"  oninput="pdfCollect()" placeholder="内容"   style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block">
+  </div>`;
+}
+
+function pdImpHTML(imp,i){
+  return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:6px;position:relative">
+    <button onclick="pdDelImprove(${i})" style="position:absolute;top:5px;right:5px;width:16px;height:16px;border:1px solid var(--border);border-radius:3px;background:white;color:var(--muted);cursor:pointer;font-size:10px;line-height:1">✕</button>
+    <div style="display:flex;gap:4px;margin-bottom:3px">
+      <input data-i="${i}" data-f="theme" value="${escAttr(imp.theme||'')}" oninput="pdfCollect()" placeholder="テーマ" style="width:72px;flex-shrink:0;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none">
+
+    </div>
+    <input data-i="${i}" data-f="issue"      value="${escAttr(imp.issue||'')}"      oninput="pdfCollect()" placeholder="気づいたこと"       style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block;margin-bottom:3px">
+    <input data-i="${i}" data-f="suggestion" value="${escAttr(imp.suggestion||'')}" oninput="pdfCollect()" placeholder="こう変えてみませんか？" style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block">
+  </div>`;
+}
+
+function pdToggle(bodyId,arrowId){
+  const b=document.getElementById(bodyId),a=document.getElementById(arrowId);
+  const open=b.style.maxHeight!=='0px'&&b.style.maxHeight!=='0';
+  b.style.maxHeight=open?'0':'2000px';
+  if(a)a.style.transform=open?'rotate(-90deg)':'rotate(0deg)';
+}
+
+function pdfCollect(){
+  if(!PD)return;
+  PD.intro=document.getElementById('pd-intro').value;
+  document.querySelectorAll('[data-s][data-f]').forEach(el=>{
+    const i=+el.dataset.s,f=el.dataset.f;
+    if(PD.steps[i])PD.steps[i][f]=f==='score'?+el.value:el.value;
+  });
+  document.querySelectorAll('[data-g][data-f]').forEach(el=>{
+    const i=+el.dataset.g;if(PD.goods[i])PD.goods[i][el.dataset.f]=el.value;
+  });
+  document.querySelectorAll('[data-i][data-f]').forEach(el=>{
+    const i=+el.dataset.i,f=el.dataset.f;
+    if(PD.improves[i])PD.improves[i][f]=f==='step'?+el.value:el.value;
+  });
+  pdfUpdate();
+}
+
+function pdAddGood(){
+  pdfCollect();
+  const idx=PD.goods.length;
+  PD.goods.push({num:NUMS[idx]||`(${idx+1})`,title:'',body:''});
+  document.getElementById('pd-goods').innerHTML=PD.goods.map((g,i)=>pdGoodHTML(g,i)).join('');
+  pdfUpdate();
+}
+function pdDelGood(i){
+  pdfCollect();PD.goods.splice(i,1);
+  PD.goods.forEach((g,j)=>g.num=NUMS[j]||`(${j+1})`);
+  document.getElementById('pd-goods').innerHTML=PD.goods.map((g,i)=>pdGoodHTML(g,i)).join('');
+  pdfUpdate();
+}
+function pdAddImprove(){
+  pdfCollect();PD.improves.push({theme:'',step:1,issue:'',suggestion:''});
+  document.getElementById('pd-improves').innerHTML=PD.improves.map((imp,i)=>pdImpHTML(imp,i)).join('');
+  pdfUpdate();
+}
+function pdDelImprove(i){
+  pdfCollect();PD.improves.splice(i,1);
+  document.getElementById('pd-improves').innerHTML=PD.improves.map((imp,i)=>pdImpHTML(imp,i)).join('');
+  pdfUpdate();
+}
+function pdfUpdate(){if(!PD)return;document.getElementById('pdf-preview').innerHTML=buildPdfHTML(PD);}
+
+
+function buildPdfHTML(data) {
+  const navy='#1A3A5C', navyL='#2C5F8A', teal='#1E7B7B', tealL='#E8F4F4';
+  const green='#1A7A40', greenL='#EAF7EF', greenB='#7DC99A';
+  const amber='#C87A1A', amberL='#FEF5EC', amberB='#F0B870', amberD='#7D4A0A';
+  const textD='#1A2332', textM='#6B7A8D', white='#FFFFFF';
+  const today = new Date().toLocaleDateString('ja-JP');
+  const d = data.result || data;
+  const F = "font-family:'Noto Sans JP',Arial,sans-serif;";
+
+  const sBg  = {'3':greenL,'2':tealL,'1':amberL,'0':'#F4F6F9'};
+  const sCol = {'3':green,'2':teal,'1':amber,'0':textM};
+  const sLbl = {'3':'◎ できている！','2':'○ あとすこし','1':'△ もうひとふんばり！','0':'— 未実施'};
+
+  const stepCells = (d.steps||[]).map(s => {
+    const sc=String(s.score), col=sCol[sc]||sCol['2'], bg=sBg[sc]||sBg['2'], lbl=sLbl[sc]||'';
+    return `<td width="50%" valign="top" style="padding:3px 3px">
+      <div style="background:${bg};border-left:3px solid ${col};padding:7px 9px;border-radius:0 4px 4px 0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+          <div style="flex:1">
+            <div style="${F}font-size:8pt;font-weight:bold;color:${col};margin-bottom:3px">STEP${s.num}　${escHtml(s.label)}</div>
+            ${s.good?`<div style="${F}font-size:7.5pt;color:#1A6632;line-height:1.6;margin-bottom:1px">✅ ${escHtml(s.good)}</div>`:''}
+            ${s.improve?`<div style="${F}font-size:7.5pt;color:#8A5200;line-height:1.6">💡 ${escHtml(s.improve)}</div>`:''}
+          </div>
+          <div style="${F}font-size:7pt;font-weight:bold;color:${col};white-space:nowrap;margin-top:1px">${lbl}</div>
+        </div>
+      </div>
+    </td>`;
+  });
+  const stepRows = [];
+  for (let i=0; i<stepCells.length; i+=2) {
+    stepRows.push(`<tr>${stepCells[i]}${stepCells[i+1]||'<td width="50%"></td>'}</tr>`);
+  }
+
+  const goodColors = [
+    {bg:greenL, border:greenB, num:green, title:'#0F4D27', body:'#1A5C32'},
+    {bg:tealL,  border:'#7BBFBF', num:teal, title:'#0D4D4D', body:'#1A5C5C'},
+    {bg:'#EEF2FF', border:'#A0AAEE', num:'#3B4FCC', title:'#1A2B99', body:'#2C3D99'},
+    {bg:amberL, border:amberB, num:amber, title:amberD, body:'#9A5C0A'},
+    {bg:'#F5EEF8', border:'#C39BD3', num:'#8E44AD', title:'#5B2C6F', body:'#7D3C98'},
+  ];
+  const goods = d.goods||[];
+  const goodRows = [];
+  for (let i=0; i<goods.length; i+=3) {
+    const cols = goods.slice(i,i+3).map((g,j) => {
+      const c = goodColors[(i+j)%goodColors.length];
+      return `<td width="33%" valign="top" style="padding:${j>0?'0 0 0 6px':'0'}">
+        <div style="background:${c.bg};border:1px solid ${c.border};border-radius:4px;padding:8px 10px;height:100%">
+          <div style="${F}font-size:13pt;font-weight:bold;color:${c.num};margin-bottom:2px">${g.num}</div>
+          <div style="${F}font-size:8pt;font-weight:bold;color:${c.title};margin-bottom:3px">${escHtml(g.title)}</div>
+          <div style="${F}font-size:7.5pt;line-height:1.6;color:${c.body}">${escHtml(g.body)}</div>
+        </div>
+      </td>`;
+    });
+    while(cols.length<3) cols.push('<td width="33%"></td>');
+    goodRows.push(`<tr>${cols.join('')}</tr><tr><td colspan="3" style="height:5px"></td></tr>`);
+  }
+
+  const improveRows = (d.improves||[]).map((imp,i) => {
+    const rowBg = i%2===0 ? amberL : '#FFFDF8';
+    return `<tr style="background:${rowBg}">
+      <td width="22" valign="middle" style="padding:7px 4px 7px 8px">
+        <div style="background:${amber};color:${white};${F}font-size:8pt;font-weight:bold;width:18px;height:18px;text-align:center;line-height:18px;border-radius:50%;display:inline-block">${i+1}</div>
+      </td>
+      <td width="70" valign="top" style="padding:7px 7px;border-right:1px solid ${amberB}">
+        <div style="${F}font-size:8pt;font-weight:bold;color:${amberD}">${escHtml(imp.theme)}</div>
+      </td>
+      <td valign="top" style="padding:7px 8px;border-right:1px solid ${amberB}">
+        <div style="${F}font-size:7pt;font-weight:bold;color:${textM};margin-bottom:2px">気づいたこと</div>
+        <div style="${F}font-size:7.5pt;line-height:1.6;color:${textD}">${escHtml(imp.issue)}</div>
+      </td>
+      <td valign="top" style="padding:7px 8px">
+        <div style="${F}font-size:7pt;font-weight:bold;color:${amber};margin-bottom:2px">こう変えてみませんか？</div>
+        <div style="${F}font-size:7.5pt;line-height:1.6;color:${amberD}">${escHtml(imp.suggestion)}</div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="width:100%;${F}font-size:9pt;color:${textD}">
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:10px">
+    <tr><td style="background:${navy};padding:12px 16px;border-radius:6px 6px 0 0">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td>
+          <div style="${F}font-size:7pt;color:rgba(255,255,255,.4);letter-spacing:1px;margin-bottom:3px">CASE FEEDBACK REPORT　／　カウンセリング振り返りレポート</div>
+          <div style="${F}font-size:15pt;font-weight:bold;color:${white}">${escHtml(data.staff||'')}</div>
+        </td>
+        <td valign="top" style="text-align:right;white-space:nowrap">
+          <div style="${F}font-size:7pt;color:rgba(255,255,255,.45);margin-bottom:4px">📝 作成日：${today}</div>
+          <span style="background:${navyL};color:${white};${F}font-size:7.5pt;font-weight:bold;padding:3px 10px;border-radius:8px;margin-right:4px">${escHtml(data.clinic||'')}</span>
+          <span style="background:${teal};color:${white};${F}font-size:7.5pt;font-weight:bold;padding:3px 10px;border-radius:8px">${data.type||''}</span>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="background:#EAF0F8;border-left:4px solid ${teal};padding:8px 12px">
+      <div style="${F}font-size:8pt;line-height:1.8;color:${textD}">${escHtml(d.intro||'')}</div>
+    </td></tr>
+  </table>
+
+  ${(d.steps && d.steps.length > 0) ? `
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:10px">
+    <tr><td style="background:#EAF0F8;border-left:4px solid ${navyL};padding:5px 12px">
+      <div style="${F}font-size:9pt;font-weight:bold;color:${navyL}">■ 8ステップ評価</div>
+    </td></tr>
+    <tr><td style="padding:5px 0 0">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">${stepRows.join('')}</table>
+    </td></tr>
+  </table>` : ''}
+
+  ${goods.length>0?`
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:10px">
+    <tr><td style="background:${greenL};border-left:4px solid ${green};padding:5px 12px">
+      <div style="${F}font-size:9pt;font-weight:bold;color:${green}">■ すでに素敵な${goods.length}つのポイント ✨</div>
+    </td></tr>
+    <tr><td style="padding:6px 0 0">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">${goodRows.join('')}</table>
+    </td></tr>
+  </table>`:''}
+
+  ${(d.improves||[]).length>0?`
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:12px">
+    <tr><td style="background:${amberL};border-left:4px solid ${amber};padding:5px 12px">
+      <div style="${F}font-size:9pt;font-weight:bold;color:${amber}">■ もう少し工夫できそうな${(d.improves||[]).length}つのポイント</div>
+    </td></tr>
+    <tr><td style="padding:5px 0 0">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border:1px solid ${amberB};overflow:hidden">
+        <tr style="background:${amberD}">
+          <td width="22" style="padding:5px 8px"></td>
+          <td width="70" style="padding:5px 7px;${F}font-size:7.5pt;font-weight:bold;color:rgba(255,255,255,.9)">テーマ</td>
+          <td style="padding:5px 8px;${F}font-size:7.5pt;font-weight:bold;color:rgba(255,255,255,.9)">気づいたこと</td>
+          <td style="padding:5px 8px;${F}font-size:7.5pt;font-weight:bold;color:rgba(255,255,255,.9)">こう変えてみませんか？</td>
+        </tr>
+        ${improveRows}
+      </table>
+    </td></tr>
+  </table>`:''}
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr><td style="border-top:1px solid #DDE3EC;padding-top:7px;text-align:right">
+      <div style="${F}font-size:7.5pt;color:${textM}">Counseling Bootcamp　／　株式会社SABU</div>
+    </td></tr>
+  </table>
+
+  </div>`;
+}
+
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+</script>
+</body>
+</html>
