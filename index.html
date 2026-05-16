@@ -1823,9 +1823,12 @@ async function startAudioAnalysis(){
     const submitRes=await fetch('https://api.assemblyai.com/v2/transcript',{
       method:'POST',
       headers:{'authorization':asmKey,'content-type':'application/json'},
-      body:JSON.stringify({audio_url:audioUrl,language_code:'ja',speaker_labels:true,speakers_expected:2})
+      body:JSON.stringify({audio_url:audioUrl,speech_model:'nano',language_code:'ja',speaker_labels:true,speakers_expected:2})
     });
-    if(!submitRes.ok) throw new Error('分析開始エラー: '+submitRes.status);
+    if(!submitRes.ok){
+      const errText=await submitRes.text();
+      throw new Error('分析開始エラー: '+submitRes.status+' '+errText);
+    }
     const submitData=await submitRes.json();
     const tid=submitData.id;
 
