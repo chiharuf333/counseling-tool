@@ -478,7 +478,7 @@ textarea:focus{border-color:var(--teal);background:var(--white)}
             <div class="card-title"><div class="icon">🎙️</div>音声ファイルをアップロード</div>
             <div id="audio-drop-area" style="border:2px dashed var(--tealM);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;background:var(--tealP);margin-bottom:10px;transition:all .2s" onclick="document.getElementById(&#39;audioFileInput&#39;).click()" ondragover="event.preventDefault();this.style.borderColor=&#39;var(--teal)&#39;;this.style.background=&#39;#D0EBE8&#39;" ondragleave="this.style.borderColor=&#39;var(--tealM)&#39;;this.style.background=&#39;var(--tealP)&#39;" ondrop="handleAudioDrop(event)">
               <div style="font-size:36px;margin-bottom:8px">🎵</div>
-              <div style="font-size:14px;font-weight:700;color:var(--teal);margin-bottom:4px">mp3 / m4a / mp4 / wav をここにドロップ</div>
+              <div style="font-size:14px;font-weight:700;color:var(--teal);margin-bottom:4px">mp3 / m4a / wav をここにドロップ</div>
               <div style="font-size:11px;color:var(--muted)">またはクリックしてファイルを選択</div>
               <input type="file" id="audioFileInput" accept=".mp3,.m4a,.wav,.mp4,.webm" style="display:none" onchange="handleAudioFile(this.files[0])">
             </div>
@@ -1822,7 +1822,7 @@ async function startAudioAnalysis(){
     const submitRes=await fetch('https://api.assemblyai.com/v2/transcript',{
       method:'POST',
       headers:{'authorization':asmKey,'content-type':'application/json'},
-      body:JSON.stringify({audio_url:audioUrl,speech_model:'best',language_code:'ja',speaker_labels:true,speakers_expected:2})
+      body:JSON.stringify({audio_url:audioUrl,language_code:'ja',speaker_labels:true,speakers_expected:2})
     });
     if(!submitRes.ok){
       const t=await submitRes.text();
