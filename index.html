@@ -1835,14 +1835,32 @@ async function startAudioAnalysis(){
     document.getElementById('loadingStep').textContent='文字起こし中...（数分かかります）';
     let asmResult=null;
     for(let i=0;i<120;i++){
-      await new Promise(r=>setTimeout(r,5000));
-      const pollRes=await fetch(`https://api.assemblyai.com/v2/transcript/${tid}`,{headers:{'authorization':asmKey}});
-      const pd=await pollRes.json();
-      if(pd.status==='completed'){asmResult=pd;break;}
-      if(pd.status==='error') throw new Error('分析エラー: '+pd.error);
-      document.getElementById('loadingStep').textContent=`文字起こし中...（${(i+1)*5}秒経過）`;
+
+  await new Promise(r=>setTimeout(r,5000));
+
+  const pollRes=await fetch(
+    `https://api.assemblyai.com/v2/transcript/${tid}`,
+    {
+      headers:{'authorization':asmKey}
     }
-    if(!asmResult) throw new Error('タイムアウト。しばらく後に再試行してください');
+  );
+
+  const pd=await pollRes.json();
+
+  console.log('poll結果',pd);
+
+  if(pd.status==='completed'){
+    asmResult=pd;
+    break;
+  }
+
+  if(pd.status==='error'){
+    throw new Error('分析エラー：'+pd.error);
+  }
+
+  document.getElementById('loadingStep').textContent=
+    `文字起こし中... (${(i+1)*5}秒経過)`;
+}
 
     // Step4: 話者データ計算
     document.getElementById('loadingStep').textContent='話者データを解析中...';
