@@ -2374,7 +2374,7 @@ function drawRadarChart(canvasId,data){
         ticks:{stepSize:1,display:true,backdropColor:'transparent',color:'#6B7A8D',font:{size:10}},
         grid:{color:'rgba(0,0,0,0.1)',circular:false},
         angleLines:{color:'rgba(0,0,0,0.1)'},
-        pointLabels:{font:{size:9,weight:'bold',family:"'Noto Sans JP',Arial,sans-serif"},color:'#1A3A5C',padding:4}}},
+        pointLabels:{font:{size:8,weight:'bold',family:"'Noto Sans JP',Arial,sans-serif"},color:'#1A3A5C',padding:14}}},
       plugins:{legend:{display:false}}}
   });
 }
@@ -2520,27 +2520,18 @@ async function startAudioAnalysis(){
     const avgSilence=silences.length?Math.round(silences.reduce((a,b)=>a+b,0)/silences.length):0;
 
     // ── 音声スキルスコア計算（3軸） ──
-    // 1) 話すスピード：カウンセラー（話者A=最初の話者）の文字数/発話秒数
     const counselorSpk=spkRatio[0]?.speaker||'A';
     const counselorUtts=utts.filter(u=>u.speaker===counselorSpk);
     const counselorChars=counselorUtts.reduce((a,u)=>a+(u.text||'').length,0);
     const counselorSec=spkRatio[0]?.seconds||1;
-    const charsPerSec=counselorChars/counselorSec; // 文字/秒
-    // 適切スピード：6〜10文字/秒を◎、4〜6or10〜13を○、それ以外を△
+    const charsPerSec=counselorChars/counselorSec;
     const speedScore=charsPerSec>=6&&charsPerSec<=10?3:charsPerSec>=4&&charsPerSec<=13?2:1;
-
-    // 2) 沈黙の活用：2秒以上の沈黙が3〜8回を◎、1〜2or9〜12を○、0or13以上を△
     const silCount=silences.length;
     const silenceScore=silCount>=3&&silCount<=8?3:silCount>=1&&silCount<=12?2:1;
-
-    // 3) 発話バランス：カウンセラー40〜60%を◎、30〜40or60〜70%を○、それ以外を△
     const counselorRatio=spkRatio[0]?.ratio||50;
     const balanceScore=counselorRatio>=40&&counselorRatio<=60?3:counselorRatio>=30&&counselorRatio<=70?2:1;
-
     const audioSkillScores={
-      '話すスピード':speedScore,
-      '沈黙の活用':silenceScore,
-      '発話バランス':balanceScore,
+      '話すスピード':speedScore,'沈黙の活用':silenceScore,'発話バランス':balanceScore,
       _detail:{charsPerSec:Math.round(charsPerSec*10)/10,silCount,counselorRatio}
     };
 
@@ -2576,7 +2567,6 @@ function renderAudioAnalysis(data,spkRatio){
   const scoreLabel={3:'◎ 良い',2:'○ 普通',1:'△ 要改善'};
   const scoreColor={3:'var(--green)',2:'var(--teal)',1:'var(--amber)'};
   const scoreBg={3:'var(--greenP)',2:'var(--tealP)',1:'var(--amberP)'};
-
   const card=document.createElement('div');
   card.id='audio-analysis-card';
   card.className='card';
@@ -2584,7 +2574,7 @@ function renderAudioAnalysis(data,spkRatio){
     <div class="card-title"><div class="icon">🎙️</div>音声スキル分析</div>
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
       <div style="flex-shrink:0">
-        <canvas id="audio-radar-canvas" width="200" height="200" style="width:200px;height:200px;display:block"></canvas>
+        <canvas id="audio-radar-canvas" width="210" height="210" style="width:210px;height:210px;display:block"></canvas>
       </div>
       <div style="flex:1;min-width:180px">
         ${['話すスピード','沈黙の活用','発話バランス'].map(k=>{
@@ -2607,8 +2597,6 @@ function renderAudioAnalysis(data,spkRatio){
     </div>`;
   const fb=document.getElementById('fbSheet');
   fb.parentNode.insertBefore(card,fb);
-
-  // レーダーチャート描画
   setTimeout(()=>{
     const ctx=document.getElementById('audio-radar-canvas');
     if(!ctx||!window.Chart)return;
@@ -2617,23 +2605,16 @@ function renderAudioAnalysis(data,spkRatio){
       type:'radar',
       data:{
         labels:['話すスピード','沈黙の活用','発話バランス'],
-        datasets:[{
-          label:'音声スキル',
-          data:[scores['話すスピード']||1,scores['沈黙の活用']||1,scores['発話バランス']||1],
-          backgroundColor:'rgba(30,123,123,0.2)',
-          borderColor:'rgba(30,123,123,1)',
-          borderWidth:2.5,
-          pointBackgroundColor:'rgba(30,123,123,1)',
-          pointBorderColor:'white',
-          pointBorderWidth:2,
-          pointRadius:5
-        }]
+        datasets:[{label:'音声スキル',data:[scores['話すスピード']||1,scores['沈黙の活用']||1,scores['発話バランス']||1],
+          backgroundColor:'rgba(30,123,123,0.2)',borderColor:'rgba(30,123,123,1)',
+          borderWidth:2.5,pointBackgroundColor:'rgba(30,123,123,1)',
+          pointBorderColor:'white',pointBorderWidth:2,pointRadius:5}]
       },
-      options:{
-        animation:false,responsive:false,maintainAspectRatio:false,
-        scales:{r:{min:0,max:3,ticks:{stepSize:1,display:true,backdropColor:'transparent',color:'#6B7A8D',font:{size:10}},grid:{color:'rgba(0,0,0,0.1)'},angleLines:{color:'rgba(0,0,0,0.1)'},pointLabels:{font:{size:11,weight:'bold'},color:'#1A3A5C',padding:6}}},
-        plugins:{legend:{display:false}}
-      }
+      options:{animation:false,responsive:false,maintainAspectRatio:false,
+        scales:{r:{min:0,max:3,ticks:{stepSize:1,display:true,backdropColor:'transparent',color:'#6B7A8D',font:{size:10}},
+          grid:{color:'rgba(0,0,0,0.1)'},angleLines:{color:'rgba(0,0,0,0.1)'},
+          pointLabels:{font:{size:10,weight:'bold'},color:'#1A3A5C',padding:18}}},
+        plugins:{legend:{display:false}}}
     });
   },100);
 }
