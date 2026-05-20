@@ -601,8 +601,42 @@ textarea:focus{border-color:var(--teal);background:var(--white)}
         </div>
 
         <div class="result-box" id="resultBox" style="display: none;">
-        
-      </div>
+          <div class="page-container">
+            <!-- ヘッダー -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+              <div id="res-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:9px;background:var(--tealP);color:var(--teal)"></div>
+              <div id="res-clinic" style="font-size:15px;font-weight:700;color:var(--navy)"></div>
+            </div>
+            <!-- はじめに -->
+            <div class="card" style="margin-bottom:12px">
+              <div class="card-title"><div class="icon">💬</div>はじめに</div>
+              <div id="res-intro" style="font-size:13px;line-height:1.7;color:var(--text)"></div>
+            </div>
+            <!-- レーダー＆素敵ポイント -->
+            <div id="res-radar-section" class="card" style="display:none;margin-bottom:12px">
+              <div id="res-radar-title" class="card-title"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+                <canvas id="radar-canvas" width="260" height="260" style="max-width:260px;max-height:260px;display:block;margin:0 auto"></canvas>
+                <div id="res-goods-inline"></div>
+              </div>
+            </div>
+            <!-- 8ステップ -->
+            <div id="res-steps-section" class="card" style="display:none;margin-bottom:12px">
+              <div class="card-title"><div class="icon">📋</div>8ステップ評価</div>
+              <div id="res-steps"></div>
+            </div>
+            <!-- 素敵ポイント（レーダーなし時） -->
+            <div id="res-goods-section" class="card" style="display:none;margin-bottom:12px">
+              <div class="card-title"><div class="icon">✨</div>素敵なポイント</div>
+              <div id="res-goods"></div>
+            </div>
+            <!-- 改善ポイント -->
+            <div class="card" style="margin-bottom:12px">
+              <div class="card-title"><div class="icon">💡</div>改善ポイント</div>
+              <div id="res-improves"></div>
+            </div>
+          </div>
+        </div>
     </div>
 
   </div><!-- /main -->
