@@ -1359,6 +1359,8 @@ function showPage(name,clinicName){
     const rb = document.getElementById('resultBox');
     if(rb) { rb.className='result-box'; rb.style.display='none'; }
     analysisResult = null;
+    const inputSec = document.getElementById('inputSection');
+    if(inputSec && inputSec.style.display==='none') inputSec.style.display='block';
   }
 }
 
