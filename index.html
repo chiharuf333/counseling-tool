@@ -1249,6 +1249,9 @@ textarea:focus{border-color:var(--teal);background:var(--white)}
 const CLAUDE_API_URL='https://api.anthropic.com/v1/messages';
 const CLAUDE_API_KEY=''; // localStorageから読み込むので空でOK
 const STORAGE_KEY='counseling_v4';
+const EDIT_HISTORY_KEY='counseling_edit_history_v1';
+function getEditHistory(){try{return JSON.parse(localStorage.getItem(EDIT_HISTORY_KEY)||'[]')}catch{return[]}}
+function saveEditHistory(h){localStorage.setItem(EDIT_HISTORY_KEY,JSON.stringify(h))}
 
 function getApiKey(){ return localStorage.getItem('claude_api_key')||CLAUDE_API_KEY||''; }
 function saveApiKey(){
@@ -1744,13 +1747,37 @@ function buildPrompt(clinic,staff,type,date,transcript){
   const stepsDef=getStepsDef(type);
   const hasSteps=stepsDef!==null;
 
+  // ── 過去の編集履歴からプロンプトに反映する修正例を生成 ──
+  function buildEditContext(){
+    const history = getEditHistory();
+    if(!history.length) return '';
+    // 同じカウンセリングタイプの修正例を優先、最大5件
+    const relevant = history
+      .filter(h => !type || h.type === type || !h.type)
+      .slice(-5);
+    if(!relevant.length) return '';
+    const examples = relevant.flatMap(h => h.diffs.slice(0,3).map(d=>{
+      if(d.before && d.after){
+        return `- 【${d.field}】「${d.before.slice(0,40)}」→「${d.after.slice(0,40)}」`;
+      }
+      return null;
+    }).filter(Boolean));
+    if(!examples.length) return '';
+    return `
+【過去の修正パターン（参考にして次回からこのトーン・内容で書いてください）】
+${examples.join('\n')}
+
+`;
+  }
+  const editContext = buildEditContext();
+
   if(hasSteps){
     // ── ステップあり（補綴・各種矯正・初診） ──
     const stepsText=stepsDef.map(s=>`STEP${s.num}「${s.label}」: ${s.hint}`).join('\n');
     const stepCount=stepsDef.length;
     return `あなたは歯科クリニックの専任カウンセリングコーチです。
 スタッフの成長を心から応援する立場で、録音を丁寧に聞いた上でフィードバックしてください。
-
+${editContext}
 【あなたのスタンス】
 - まず「できていること」を具体的に見つけて、しっかり言葉にして褒める
 - 改善点は「ここをちょっと変えるだけでもっと良くなる！」という視点で伝える
@@ -1791,7 +1818,7 @@ ${transcript}
     // ── ステップなし（その他） ──
     return `あなたは歯科クリニックの専任カウンセリングコーチです。
 スタッフの成長を心から応援する立場で、録音を丁寧に聞いた上でフィードバックしてください。
-
+${editContext}
 【あなたのスタンス】
 - まず「できていること」を具体的に見つけて、しっかり言葉にして褒める
 - 改善点は「ここをちょっと変えるだけでもっと良くなる！」という視点で伝える
@@ -2056,6 +2083,13 @@ function openPdfEditor(id,data){
     radar_scores:JSON.parse(JSON.stringify(d.radar_scores||raw.radar_scores||{})),
     contracted: raw.contracted !== undefined ? raw.contracted : null,
   };
+  // 編集前の元データをスナップショット保存（学習用）
+  PD._original = {
+    intro: d.intro||'',
+    steps: JSON.parse(JSON.stringify(d.steps||[])),
+    goods: JSON.parse(JSON.stringify(d.goods||[])),
+    improves: JSON.parse(JSON.stringify(d.improves||[])),
+  };
   // 成約ボタンの初期状態を設定（DOM生成後）
   setTimeout(()=>setPDContracted(PD.contracted), 200);
   PD.goods.forEach((g,i)=>g.num=NUMS[i]||`(${i+1})`);
@@ -2078,6 +2112,50 @@ function openPdfEditor(id,data){
 function savePdfEdit(){
   if(!PD) return;
   pdfCollect(); // 最新の入力内容を反映
+
+  // ── 編集履歴を記録（学習用） ──
+  const orig = PD._original;
+  if(orig){
+    const diffs = [];
+    // intro の変更
+    if(orig.intro !== PD.intro && PD.intro){
+      diffs.push({field:'intro', before:orig.intro, after:PD.intro});
+    }
+    // steps の変更
+    (PD.steps||[]).forEach((s,i)=>{
+      const o = (orig.steps||[])[i];
+      if(!o) return;
+      if(o.good !== s.good) diffs.push({field:`step${s.num}_good`, before:o.good, after:s.good});
+      if(o.improve !== s.improve) diffs.push({field:`step${s.num}_improve`, before:o.improve, after:s.improve});
+    });
+    // goods の変更
+    (PD.goods||[]).forEach((g,i)=>{
+      const o = (orig.goods||[])[i];
+      if(!o) return;
+      if(o.title !== g.title) diffs.push({field:`good${i+1}_title`, before:o.title, after:g.title});
+      if(o.body !== g.body) diffs.push({field:`good${i+1}_body`, before:o.body, after:g.body});
+    });
+    // improves の変更
+    (PD.improves||[]).forEach((imp,i)=>{
+      const o = (orig.improves||[])[i];
+      if(!o) return;
+      if(o.theme !== imp.theme) diffs.push({field:`improve${i+1}_theme`, before:o.theme, after:imp.theme});
+      if(o.issue !== imp.issue) diffs.push({field:`improve${i+1}_issue`, before:o.issue, after:imp.issue});
+      if(o.suggestion !== imp.suggestion) diffs.push({field:`improve${i+1}_suggestion`, before:o.suggestion, after:imp.suggestion});
+    });
+    if(diffs.length > 0){
+      const history = getEditHistory();
+      history.push({
+        at: new Date().toISOString(),
+        type: PD.type||'',
+        clinic: PD.clinic||'',
+        diffs
+      });
+      // 最大200件保持
+      if(history.length > 200) history.splice(0, history.length - 200);
+      saveEditHistory(history);
+    }
+  }
   const records = getRecords();
   const {_id, ...payload} = PD;
   const result = {
