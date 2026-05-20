@@ -1770,10 +1770,13 @@ function renderResult(data){
       </div>`).join('');
     }
   } else {
-    if(radarSection) radarSection.style.display='none';
-    // レーダーなし時は素敵ポイントを通常セクションで表示
-    const goodsSection=document.getElementById('res-goods-section');
-    if(goodsSection) goodsSection.style.display='';
+    if(stepsSection) stepsSection.style.display='none';
+    // ステップなし（その他）時は素敵ポイントを通常セクションで表示
+    // ※radarSectionはrdの有無で上のブロックが制御済みなので触らない
+    if(!rd){
+      const goodsSection=document.getElementById('res-goods-section');
+      if(goodsSection) goodsSection.style.display='';
+    }
   }
 
   // 良かった点（レーダーなし時のみ）
