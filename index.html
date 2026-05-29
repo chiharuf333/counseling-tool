@@ -1805,13 +1805,14 @@ ${transcript}
     {"num":"③","title":"","body":""}
   ],
   "improves": [
-    {"theme":"テーマ【10文字以内】","issue":"現状の気づきを事実として【35文字以内】","suggestion":"具体的にどう変えるか前向きに【45文字以内】"},
-    {"theme":"","issue":"","suggestion":""},
-    {"theme":"","issue":"","suggestion":""},
-    {"theme":"","issue":"","suggestion":""}
+    {"theme":"テーマ【10文字以内】","issue":"気づいたこと：指摘がきつく見えないよう柔らかく表現する。相手を責めず改善の余地として伝える【60文字以内】","suggestion":"こんな伝え方はいかがでしょうか？：実際にそのまま使える具体的な会話例【60文字以内】","effect":"この声かけで期待できる効果：安心感・納得感・信頼関係などの言葉を使い一文で【40文字以内】"},
+    {"theme":"","issue":"","suggestion":"","effect":""},
+    {"theme":"","issue":"","suggestion":"","effect":""},
+    {"theme":"","issue":"","suggestion":"","effect":""}
   ]
 }
 採点：score 3=◎できている！ 2=○あとすこし 1=△もうひとふんばり！ 0=—未実施
+全体的に、やさしく前向きで伴走するようなトーンで書いてください。
 必ず文字起こしの内容を根拠に評価してください。架空の内容は書かないでください。`;
 
   } else {
@@ -1855,13 +1856,14 @@ ${transcript}
     {"num":"③","title":"","body":""}
   ],
   "improves": [
-    {"theme":"テーマ【10文字以内】","issue":"現状の気づきを事実として【35文字以内】","suggestion":"具体的にどう変えるか前向きに【45文字以内】"},
-    {"theme":"","issue":"","suggestion":""},
-    {"theme":"","issue":"","suggestion":""},
-    {"theme":"","issue":"","suggestion":""}
+    {"theme":"テーマ【10文字以内】","issue":"気づいたこと：指摘がきつく見えないよう柔らかく表現する。相手を責めず改善の余地として伝える【60文字以内】","suggestion":"こんな伝え方はいかがでしょうか？：実際にそのまま使える具体的な会話例【60文字以内】","effect":"この声かけで期待できる効果：安心感・納得感・信頼関係などの言葉を使い一文で【40文字以内】"},
+    {"theme":"","issue":"","suggestion":"","effect":""},
+    {"theme":"","issue":"","suggestion":"","effect":""},
+    {"theme":"","issue":"","suggestion":"","effect":""}
   ]
 }
 radar_scoresの採点：0=できていない 1=△もうひとふんばり 2=○あとすこし 3=◎できている！
+全体的に、やさしく前向きで伴走するようなトーンで書いてください。
 必ず文字起こしの内容を根拠に評価してください。架空の内容は書かないでください。`;
   }
 }
@@ -1963,15 +1965,15 @@ function renderResult(data){
   document.getElementById('res-goods').innerHTML=data.goods.map(g=>`<div class="good-card"><div class="good-num">${g.num}</div><div class="good-title">${escHtml(g.title)}</div><div class="good-body">${escHtml(g.body)}</div></div>`).join('');
 
   // 改善ポイント（STEPタグ付き）
-  document.getElementById('res-improves').innerHTML=data.improves.map((imp,i)=>`
+  document.getElementById('res-improves').innerHTML=data.improves.filter(imp=>imp.theme||imp.issue).map((imp,i)=>`
     <div class="improve-item">
       <div class="improve-num">${i+1}</div>
-      <div>
+      <div style="flex:1">
         <div class="improve-theme">${escHtml(imp.theme)}</div>
-
+        ${imp.issue?`<div><div class="improve-label">気づいたこと</div><div class="improve-text">${escHtml(imp.issue)}</div></div>`:''}
+        ${imp.suggestion?`<div><div class="improve-label">こんな伝え方はいかがでしょうか？</div><div class="improve-suggest">${escHtml(imp.suggestion)}</div></div>`:''}
+        ${imp.effect?`<div style="margin-top:6px;padding:8px 10px;background:#FEF5EC;border-radius:6px;font-size:12px;color:#C87A1A;">💡 ${escHtml(imp.effect)}</div>`:''}
       </div>
-      <div><div class="improve-label">気づいたこと</div><div class="improve-text">${escHtml(imp.issue)}</div></div>
-      <div><div class="improve-label">こう変えてみませんか?</div><div class="improve-suggest">${escHtml(imp.suggestion)}</div></div>
     </div>`).join('');
   document.getElementById('resultBox').className='result-box show';
   setStep(4);
@@ -2287,10 +2289,10 @@ function pdImpHTML(imp,i){
     <button onclick="pdDelImprove(${i})" style="position:absolute;top:5px;right:5px;width:16px;height:16px;border:1px solid var(--border);border-radius:3px;background:white;color:var(--muted);cursor:pointer;font-size:10px;line-height:1">✕</button>
     <div style="display:flex;gap:4px;margin-bottom:3px">
       <input data-i="${i}" data-f="theme" value="${escAttr(imp.theme||'')}" oninput="pdfCollect()" placeholder="テーマ" style="width:72px;flex-shrink:0;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none">
-
     </div>
     <input data-i="${i}" data-f="issue"      value="${escAttr(imp.issue||'')}"      oninput="pdfCollect()" placeholder="気づいたこと"       style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block;margin-bottom:3px">
-    <input data-i="${i}" data-f="suggestion" value="${escAttr(imp.suggestion||'')}" oninput="pdfCollect()" placeholder="こう変えてみませんか？" style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block">
+    <input data-i="${i}" data-f="suggestion" value="${escAttr(imp.suggestion||'')}" oninput="pdfCollect()" placeholder="こんな伝え方はいかがでしょうか？" style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block;margin-bottom:3px">
+    <input data-i="${i}" data-f="effect"     value="${escAttr(imp.effect||'')}"     oninput="pdfCollect()" placeholder="期待できる効果"         style="width:100%;height:24px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:10px;outline:none;display:block;background:#FEF5EC">
   </div>`;
 }
 
@@ -2437,8 +2439,9 @@ function buildPdfHTML(data) {
         <div style="${F}font-size:7.5pt;line-height:1.6;color:${textD}">${escHtml(imp.issue)}</div>
       </td>
       <td valign="top" style="padding:7px 8px">
-        <div style="${F}font-size:7pt;font-weight:bold;color:${amber};margin-bottom:2px">こう変えてみませんか？</div>
+        <div style="${F}font-size:7pt;font-weight:bold;color:${amber};margin-bottom:2px">こんな伝え方はいかがでしょうか？</div>
         <div style="${F}font-size:7.5pt;line-height:1.6;color:${amberD}">${escHtml(imp.suggestion)}</div>
+        ${imp.effect?`<div style="${F}font-size:7pt;margin-top:4px;padding:3px 6px;background:#FFF3E0;border-radius:4px;color:#9A5C0A">💡 ${escHtml(imp.effect)}</div>`:''}
       </td>
     </tr>`;
   }).join('');
